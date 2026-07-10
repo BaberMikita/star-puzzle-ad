@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -108,7 +108,7 @@
             const tapOverlay = this.add.rectangle(300, 400, 600, 800, 0x000000, 0.6).setDepth(10).setInteractive();
 
             // Анимированная звезда-иконка
-            const tapStar = this.add.text(300, 310, '⭐', { fontSize: '64px' }).setOrigin(0.5).setDepth(11);
+            const tapStar = this.add.text(300, 310, '', { fontSize: '64px' }).setOrigin(0.5).setDepth(11);
             this.tweens.add({
                 targets: tapStar,
                 scaleX: 1.2, scaleY: 1.2,
@@ -130,7 +130,7 @@
                 repeat: -1
             });
 
-            const tapHint = this.add.text(300, 470, 'нарисуй звезду!', {
+            const tapHint = this.add.text(300, 470, 'Draw a star!', {
                 fontSize: '18px', fill: '#aaaacc'
             }).setOrigin(0.5).setDepth(11);
 
@@ -219,11 +219,11 @@
                 }
             });
 
-            this.add.text(300, 80, 'Нарисуй звезду!', {
+            this.add.text(300, 80, 'Draw a Star!', {
                 fontSize: '30px', fill: '#ffd700', fontStyle: 'bold'
             }).setOrigin(0.5);
 
-            this.add.text(300, 130, 'Веди линию через точки по порядку', {
+            this.add.text(300, 130, 'Connect the dots in order', {
                 fontSize: '17px', fill: '#aaaacc'
             }).setOrigin(0.5);
         }
@@ -262,7 +262,7 @@
                 yoyo: true, repeat: -1, delay: 900
             });
 
-            btn.on('pointerdown', () => alert('Переход в стор'));
+            btn.on('pointerdown', () => alert('Redirecting to store...'));
         }
     </script>
 </body>
