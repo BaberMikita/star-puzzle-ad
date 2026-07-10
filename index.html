@@ -39,7 +39,7 @@
             // music запустится при первом касании (браузер запрещает автозапуск до взаимодействия)
             let music = null;
             if (this.cache.audio.exists('bgm')) {
-                music = this.sound.add('bgm', { loop: true, volume: 0.35 });
+                music = this.sound.add('bgm', { loop: true, volume: 0.18 });
             }
 
             const cx = 300, cy = 400, r = 160;
@@ -101,10 +101,55 @@
 
             // Делаем первую точку кликабельной
             dots[0].setInteractive();
-            dots[0].on('pointerdown', () => {
-                isDrawing = true;
-                // Запускаем музыку при первом касании — браузер разрешает звук только после этого
+            dots[0].on('pointerdown', () => { isDrawing = true; });
+
+            // === TAP TO PLAY экран ===
+            // Полупрозрачный оверлей поверх всего
+            const tapOverlay = this.add.rectangle(300, 400, 600, 800, 0x000000, 0.6).setDepth(10).setInteractive();
+
+            // Анимированная звезда-иконка
+            const tapStar = this.add.text(300, 310, '⭐', { fontSize: '64px' }).setOrigin(0.5).setDepth(11);
+            this.tweens.add({
+                targets: tapStar,
+                scaleX: 1.2, scaleY: 1.2,
+                duration: 900,
+                yoyo: true,
+                repeat: -1
+            });
+
+            const tapText = this.add.text(300, 410, 'TAP TO PLAY', {
+                fontSize: '32px', fill: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(11);
+
+            // Мигание текста
+            this.tweens.add({
+                targets: tapText,
+                alpha: 0.3,
+                duration: 700,
+                yoyo: true,
+                repeat: -1
+            });
+
+            const tapHint = this.add.text(300, 470, 'нарисуй звезду!', {
+                fontSize: '18px', fill: '#aaaacc'
+            }).setOrigin(0.5).setDepth(11);
+
+            // При нажатии на оверлей — запустить музыку и скрыть экран
+            tapOverlay.on('pointerdown', () => {
                 if (music && !music.isPlaying) music.play();
+
+                // Плавно скрыть все элементы tap-to-play
+                this.tweens.add({
+                    targets: [tapOverlay, tapStar, tapText, tapHint],
+                    alpha: 0,
+                    duration: 400,
+                    onComplete: () => {
+                        tapOverlay.destroy();
+                        tapStar.destroy();
+                        tapText.destroy();
+                        tapHint.destroy();
+                    }
+                });
             });
 
             this.input.on('pointermove', (pointer) => {
