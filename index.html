@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Star Puzzle - Playable Ad</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: 600,
+            height: 800,
+            backgroundColor: '#1a1a2e',
+            scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+            scene: { preload: preload, create: create }
+        };
+
+        new Phaser.Game(config);
+
+        function preload() {
+            // Загрузить аудиофайл. 'bgm' — это просто ключ (имя) по которому потом обращаемся
+            this.load.audio('bgm', 'music.wav');
+        }
+
+        function create() {
+            // music запустится при первом касании (браузер запрещает автозапуск до взаимодействия)
+            let music = null;
+            if (this.cache.audio.exists('bgm')) {
+                music = this.sound.add('bgm', { loop: true, volume: 0.35 });
+            }
+
+            const cx = 300, cy = 400, r = 160;
+
+            // Углы 5 вершин звезды (начиная с верхушки, по часовой)
+            const tips = [-90, -18, 54, 126, 198].map(deg => ({
+                x: cx + r * Math.cos(deg * Math.PI / 180),
+                y: cy + r * Math.sin(deg * Math.PI / 180)
+            }));
+
+            // Порядок обхода для пятиконечной звезды без отрыва: 0→2→4→1→3→0
+            const order = [0, 2, 4, 1, 3, 0];
+            const waypoints = order.map(i => tips[i]);
+
+            // Пунктирный контур звезды как подсказка
+            const guide = this.add.graphics();
+            guide.lineStyle(2, 0xffffff, 0.12);
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                guide.strokeLineShape(new Phaser.Geom.Line(
+                    waypoints[i].x, waypoints[i].y,
+                    waypoints[i + 1].x, waypoints[i + 1].y
+                ));
+            }
+
+            // Графика для рисуемой линии
+            const graphics = this.add.graphics();
+
+            // Создаём точки (кружки)
+            // Последняя точка = первая, поэтому берём только 5 уникальных
+            const dots = [];
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                const wp = waypoints[i];
+                const isFirst = (i === 0);
+                const dot = this.add.circle(wp.x, wp.y, 20, isFirst ? 0xffd700 : 0x555577);
+                dot.setDepth(1);
+
+                // Пульсация только на первой точке (подсказка игроку)
+                if (isFirst) {
+                    this.tweens.add({
+                        targets: dot,
+                        scaleX: 1.35, scaleY: 1.35,
+                        duration: 700,
+                        yoyo: true,   // вернуться к исходному размеру
+                        repeat: -1    // бесконечно
+                    });
+                }
+
+                // Номер точки
+                this.add.text(wp.x, wp.y, String(i + 1), {
+                    fontSize: '14px', fill: '#fff', fontStyle: 'bold'
+                }).setOrigin(0.5).setDepth(2);
+
+                dots.push(dot);
+            }
+
+            let currentSeg = 0;  // какой отрезок сейчас рисуем
+            let isDrawing = false;
+            const doneLines = []; // завершённые отрезки
+
+            // Делаем первую точку кликабельной
+            dots[0].setInteractive();
+            dots[0].on('pointerdown', () => {
+                isDrawing = true;
+                // Запускаем музыку при первом касании — браузер разрешает звук только после этого
+                if (music && !music.isPlaying) music.play();
+            });
+
+            this.input.on('pointermove', (pointer) => {
+                if (!isDrawing) return;
+
+                const from = waypoints[currentSeg];
+                const to = waypoints[currentSeg + 1];
+
+                // Перерисовываем всё
+                graphics.clear();
+                graphics.lineStyle(5, 0xffd700, 1);
+
+                // Завершённые линии
+                doneLines.forEach(l => {
+                    graphics.strokeLineShape(new Phaser.Geom.Line(l.x1, l.y1, l.x2, l.y2));
+                });
+
+                // Текущая линия к курсору
+                graphics.lineStyle(5, 0xffd700, 0.7);
+                graphics.strokeLineShape(new Phaser.Geom.Line(from.x, from.y, pointer.x, pointer.y));
+
+                // Попали ли в следующую точку?
+                const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, to.x, to.y);
+                if (dist < 40) {
+                    // Зафиксировать отрезок
+                    doneLines.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y });
+                    currentSeg++;
+
+                    // Подсветить пройденную точку
+                    if (currentSeg < dots.length) {
+                        dots[currentSeg].setFillStyle(0xffd700);
+                        // Маленький "прыжок" при попадании в точку
+                        this.tweens.add({
+                            targets: dots[currentSeg],
+                            scaleX: 1.5, scaleY: 1.5,
+                            duration: 150,
+                            yoyo: true
+                        });
+                    }
+
+                    // Все отрезки пройдены?
+                    if (currentSeg >= waypoints.length - 1) {
+                        isDrawing = false;
+                        graphics.clear();
+                        graphics.lineStyle(5, 0xffd700, 1);
+                        doneLines.forEach(l => {
+                            graphics.strokeLineShape(new Phaser.Geom.Line(l.x1, l.y1, l.x2, l.y2));
+                        });
+                        this.time.delayedCall(300, () => showWinScreen(this));
+                    }
+                }
+            });
+
+            // Отпустили палец/мышь — сбрасываем текущий незавершённый отрезок
+            this.input.on('pointerup', () => {
+                isDrawing = false;
+                // Перерисовать только завершённые линии
+                graphics.clear();
+                graphics.lineStyle(5, 0xffd700, 1);
+                doneLines.forEach(l => {
+                    graphics.strokeLineShape(new Phaser.Geom.Line(l.x1, l.y1, l.x2, l.y2));
+                });
+                // Позволить снова начать с последней пройденной точки
+                if (currentSeg < waypoints.length - 1) {
+                    dots[currentSeg].setInteractive();
+                    dots[currentSeg].once('pointerdown', () => { isDrawing = true; });
+                }
+            });
+
+            this.add.text(300, 80, 'Нарисуй звезду!', {
+                fontSize: '30px', fill: '#ffd700', fontStyle: 'bold'
+            }).setOrigin(0.5);
+
+            this.add.text(300, 130, 'Веди линию через точки по порядку', {
+                fontSize: '17px', fill: '#aaaacc'
+            }).setOrigin(0.5);
+        }
+
+        function showWinScreen(scene) {
+            // Затемнение с плавным появлением (alpha: 0 → 0.8)
+            const overlay = scene.add.rectangle(300, 400, 600, 800, 0x000000, 0);
+            scene.tweens.add({ targets: overlay, fillAlpha: 0.8, duration: 500 });
+
+            // "PERFECT!" влетает со scale 0 → 1 с пружинным ease
+            const title = scene.add.text(300, 330, '⭐ PERFECT! ⭐', {
+                fontSize: '44px', fill: '#ffd700', fontStyle: 'bold'
+            }).setOrigin(0.5).setScale(0);
+
+            scene.tweens.add({
+                targets: title,
+                scaleX: 1, scaleY: 1,
+                duration: 600,
+                ease: 'Back.easeOut' // пружинный эффект — перелетает и возвращается
+            });
+
+            // Кнопка появляется с задержкой
+            const btn = scene.add.rectangle(300, 460, 220, 65, 0xe06c75)
+                .setInteractive().setAlpha(0);
+            const btnText = scene.add.text(300, 460, 'PLAY NOW', {
+                fontSize: '24px', fill: '#fff', fontStyle: 'bold'
+            }).setOrigin(0.5).setAlpha(0);
+
+            scene.tweens.add({ targets: [btn, btnText], alpha: 1, duration: 400, delay: 500 });
+
+            // Бесконечная пульсация кнопки
+            scene.tweens.add({
+                targets: btn,
+                scaleX: 1.08, scaleY: 1.08,
+                duration: 600,
+                yoyo: true, repeat: -1, delay: 900
+            });
+
+            btn.on('pointerdown', () => alert('Переход в стор'));
+        }
+    </script>
+</body>
+
+</html>
